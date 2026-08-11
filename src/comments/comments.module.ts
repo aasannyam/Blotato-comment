@@ -6,6 +6,7 @@ import { CommentAuthorsRepository } from './repositories/comment-authors.reposit
 import { CommentSyncService } from './services/comment-sync.service';
 import { CommentsController } from './controllers/comments.controller';
 import { CommentsRepository } from './repositories/comments.repository';
+import { SyncStateRepository } from './repositories/sync-state.repository';
 import { CommentsService } from './services/comments.service';
 import { CommentAuthor } from './entities/comment-author.entity';
 import { CommentSyncState } from './entities/comment-sync-state.entity';
@@ -25,6 +26,7 @@ import { ReplyDispatcherService } from './workers/reply-dispatcher.service';
   providers: [
     CommentsRepository,
     CommentAuthorsRepository,
+    SyncStateRepository,
     CommentsService,
     RepliesService,
     CommentSyncService,

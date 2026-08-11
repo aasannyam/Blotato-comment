@@ -1,13 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
 import { randomUUID } from 'node:crypto';
-import { Repository } from 'typeorm';
 import { RawPlatformComment } from '../../platforms/platform-client.interface';
 import { PlatformError } from '../../platforms/platform.errors';
 import { PlatformRegistry } from '../../platforms/platform-registry.service';
 import { PublishedPostContext } from '../../posts/posts.service';
 import { CommentAuthorsRepository } from '../repositories/comment-authors.repository';
 import { CommentsRepository } from '../repositories/comments.repository';
+import { SyncStateRepository } from '../repositories/sync-state.repository';
+import { Comment } from '../entities/comment.entity';
 import { CommentSyncState } from '../entities/comment-sync-state.entity';
 import { childPath } from '../threading/thread-path';
 
@@ -21,6 +21,16 @@ export interface SyncResult {
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 
+/**
+ * How long a claimed post stays invisible to other workers. Long enough to
+ * cover a slow platform call, short enough that a crashed worker's posts come
+ * back promptly. A successful sync overwrites it with the real interval.
+ */
+const POLL_VISIBILITY_SECONDS = 120;
+
+/** Extra pages allowed purely to resolve replies whose parent was not in view. */
+const EXTRA_PAGES_FOR_ORPHANS = 2;
+
 @Injectable()
 export class CommentSyncService {
   private readonly logger = new Logger(CommentSyncService.name);
@@ -29,7 +39,7 @@ export class CommentSyncService {
     private readonly registry: PlatformRegistry,
     private readonly comments: CommentsRepository,
     private readonly authors: CommentAuthorsRepository,
-    @InjectRepository(CommentSyncState) private readonly state: Repository<CommentSyncState>,
+    private readonly state: SyncStateRepository,
   ) {}
 
   /**
@@ -46,24 +56,35 @@ export class CommentSyncService {
     let cursor: string | null = null;
 
     try {
-      for (let page = 0; page < maxPages; page++) {
+      for (let page = 0; page < maxPages + EXTRA_PAGES_FOR_ORPHANS; page++) {
         const result = await client.fetchComments(ctx.platformContext, {
           platformPostId: ctx.post.platformPostId,
           cursor,
           limit: 100,
         });
 
-        const persisted = await this.persist(ctx, result.comments);
+        const persisted = await this.ingest(ctx, result.comments);
         imported += persisted.imported;
         deferred += persisted.deferred;
 
         cursor = result.nextCursor;
         if (!cursor) break;
+
+        // Past the page budget, keep paging only while the last page left
+        // replies whose parent we have not seen. Without this they are deferred
+        // again on every poll, because we always restart from the head.
+        if (page + 1 >= maxPages && persisted.deferred === 0) break;
       }
       await this.recordSuccess(state, ctx);
     } catch (error) {
       await this.recordFailure(state, error);
       throw error;
+    }
+
+    if (deferred > 0) {
+      this.logger.warn(
+        `Post ${ctx.post.id}: ${deferred} comment(s) still orphaned after ${maxPages + EXTRA_PAGES_FOR_ORPHANS} page(s)`,
+      );
     }
 
     return { imported, deferred, syncedAt: new Date() };
@@ -75,7 +96,7 @@ export class CommentSyncService {
    * their parent in a page: oldest-first handles the common case, and anything
    * still unresolved is deferred rather than silently flattened to top level.
    */
-  private async persist(
+  async ingest(
     ctx: PublishedPostContext,
     raw: readonly RawPlatformComment[],
   ): Promise<{ imported: number; deferred: number }> {
@@ -93,7 +114,7 @@ export class CommentSyncService {
     );
 
     const now = new Date();
-    let imported = 0;
+    const batch: Comment[] = [];
     let deferred = 0;
 
     for (const item of [...raw].sort((a, b) => +a.createdAt - +b.createdAt)) {
@@ -132,16 +153,19 @@ export class CommentSyncService {
         deliveryStatus: null,
       });
 
-      await this.comments.upsertMirrored(comment);
+      // Ordered oldest-first, and a child is only reached once its parent is
+      // known, so parents precede children in the batch and the self-referencing
+      // foreign key holds within the single statement.
+      batch.push(comment);
       known.set(item.platformCommentId, comment);
-      imported++;
     }
 
-    return { imported, deferred };
+    await this.comments.upsertMirrored(batch);
+    return { imported: batch.length, deferred };
   }
 
   async ensureState(ctx: PublishedPostContext): Promise<CommentSyncState> {
-    const existing = await this.state.findOne({ where: { postId: ctx.post.id } });
+    const existing = await this.state.findByPostId(ctx.post.id);
     if (existing) return existing;
 
     return this.state.save(
@@ -154,13 +178,9 @@ export class CommentSyncService {
     );
   }
 
+  /** Atomic claim, so a second worker cannot poll the same post. */
   claimDuePosts(limit: number): Promise<CommentSyncState[]> {
-    return this.state
-      .createQueryBuilder('s')
-      .where('s.nextPollAt <= now()')
-      .orderBy('s.nextPollAt', 'ASC')
-      .limit(limit)
-      .getMany();
+    return this.state.claimDue(limit, POLL_VISIBILITY_SECONDS);
   }
 
   private async recordSuccess(state: CommentSyncState, ctx: PublishedPostContext): Promise<void> {
