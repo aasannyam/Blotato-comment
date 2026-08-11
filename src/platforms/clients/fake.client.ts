@@ -83,9 +83,4 @@ export class FakeCommentClient implements PlatformCommentClient {
     this.published.set(params.requestId, result);
     return result;
   }
-
-  reset(): void {
-    this.comments.clear();
-    this.published.clear();
-  }
 }

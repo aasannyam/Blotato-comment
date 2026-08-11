@@ -6,7 +6,7 @@ import { XCommentClient } from './clients/x.client';
 import { PlatformCommentClient } from './platform-client.interface';
 import { PLATFORM_CLIENTS, PlatformRegistry } from './platform-registry.service';
 import { PlatformsController } from './platforms.controller';
-import { InMemoryTokenVault, TokenVault } from './token-vault.service';
+import { InMemoryTokenVault, TokenVault } from './token-vault';
 
 // The extension point: a new platform is one class plus one entry here.
 const CLIENTS: Type<PlatformCommentClient>[] = [

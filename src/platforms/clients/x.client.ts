@@ -9,9 +9,9 @@ import {
   RawPlatformComment,
 } from '../platform-client.interface';
 import { PlatformError } from '../platform.errors';
-import { TokenVault } from '../token-vault.service';
-import { HttpPlatformClient } from './http-platform.client';
-import { platformFetch } from './http';
+import { TokenVault } from '../token-vault';
+import { HttpPlatformClient } from './http-client.base';
+import { platformFetch } from './platform-fetch';
 
 const API = 'https://api.x.com/2';
 

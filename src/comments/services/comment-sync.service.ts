@@ -6,7 +6,7 @@ import { PlatformRegistry } from '../../platforms/platform-registry.service';
 import { PublishedPostContext } from '../../posts/posts.service';
 import { CommentAuthorsRepository } from '../repositories/comment-authors.repository';
 import { CommentsRepository } from '../repositories/comments.repository';
-import { SyncStateRepository } from '../repositories/sync-state.repository';
+import { SyncStateRepository } from '../repositories/comment-sync-state.repository';
 import { Comment } from '../entities/comment.entity';
 import { CommentSyncState } from '../entities/comment-sync-state.entity';
 import { childPath } from '../threading/thread-path';

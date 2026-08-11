@@ -4,7 +4,7 @@ import { DataSource } from 'typeorm';
 import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/bootstrap';
 import { FakeCommentClient } from '../src/platforms/clients/fake.client';
-import { InMemoryTokenVault } from '../src/platforms/token-vault.service';
+import { InMemoryTokenVault } from '../src/platforms/token-vault';
 
 async function main(): Promise<void> {
   // The whole point of the demo is the in-memory platform; opt in explicitly.

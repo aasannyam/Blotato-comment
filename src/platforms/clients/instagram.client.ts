@@ -8,9 +8,9 @@ import {
   PublishReplyResult,
   RawPlatformComment,
 } from '../platform-client.interface';
-import { TokenVault } from '../token-vault.service';
-import { HttpPlatformClient } from './http-platform.client';
-import { platformFetch } from './http';
+import { TokenVault } from '../token-vault';
+import { HttpPlatformClient } from './http-client.base';
+import { platformFetch } from './platform-fetch';
 
 const API = 'https://graph.facebook.com/v21.0';
 

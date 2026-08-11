@@ -8,7 +8,7 @@ import {
   PublishReplyParams,
   PublishReplyResult,
 } from '../platform-client.interface';
-import { TokenVault } from '../token-vault.service';
+import { TokenVault } from '../token-vault';
 
 // Mechanics shared by adapters that call a real platform: credential lookup and
 // nothing else. Fetching and publishing stay in the adapters, because URL

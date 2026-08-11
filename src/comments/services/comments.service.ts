@@ -6,7 +6,7 @@ import { PlatformError } from '../../platforms/platform.errors';
 import { PostsService } from '../../posts/posts.service';
 import { CommentSyncService } from './comment-sync.service';
 import { CommentsRepository, SearchFilters, SortOrder } from '../repositories/comments.repository';
-import { SyncStateRepository } from '../repositories/sync-state.repository';
+import { SyncStateRepository } from '../repositories/comment-sync-state.repository';
 import { Comment } from '../entities/comment.entity';
 
 export interface ListQuery {
