@@ -3,8 +3,13 @@ export type PlatformId = string;
 
 /** Domain code branches on these, never on `platform === 'instagram'`. */
 export interface PlatformCapabilities {
-  /** Deepest reply nesting accepted. 1 = flat replies (Instagram, TikTok, YouTube). */
-  readonly maxThreadDepth: number;
+  /**
+   * Deepest reply nesting accepted. 1 = flat replies (Instagram, TikTok,
+   * YouTube); `null` = arbitrary nesting, so replies are never re-parented.
+   * A sentinel number would be served verbatim by GET /v1/platforms and leave
+   * clients rendering it as a real limit.
+   */
+  readonly maxThreadDepth: number | null;
   readonly maxBodyLength: number;
   readonly supportsWebhooks: boolean;
   /** Prefix a re-parented reply with the target's handle so the thread still reads correctly. */

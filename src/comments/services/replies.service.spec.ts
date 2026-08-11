@@ -15,6 +15,14 @@ const FLAT: PlatformCapabilities = {
   mentionOnReparent: true,
 };
 
+/** X-shaped: arbitrary nesting, so `maxThreadDepth` is null rather than a sentinel. */
+const NESTED: PlatformCapabilities = {
+  maxThreadDepth: null,
+  maxBodyLength: 280,
+  supportsWebhooks: false,
+  mentionOnReparent: false,
+};
+
 function comment(overrides: Record<string, unknown> = {}): Comment {
   return {
     id: 'c-1',
@@ -113,6 +121,31 @@ describe('RepliesService.createReply', () => {
     expect(reply.parentId).toBe('c-1');
     expect(reply.wasReparented).toBe(false);
     expect(reply.body).toBe('noted');
+  });
+
+  it('never re-parents on a platform with unbounded nesting', async () => {
+    const deep = comment({
+      id: 'c-9',
+      depth: 7,
+      rootId: 'c-1',
+      path: 'a/b/c/d/e/f/g/h',
+      author: { handle: 'nina' },
+    });
+
+    const { service, comments } = buildService({ parent: deep, capabilities: NESTED });
+
+    const { comment: reply } = await service.createReply({
+      workspaceId: 'ws-1',
+      parentCommentId: 'c-9',
+      body: 'still here',
+    });
+
+    expect(reply.parentId).toBe('c-9');
+    expect(reply.depth).toBe(8);
+    expect(reply.wasReparented).toBe(false);
+    expect(reply.body).toBe('still here');
+    // No ancestor lookup at all — null means "no limit", not "limit of zero".
+    expect(comments.findByPath).not.toHaveBeenCalled();
   });
 
   it('counts a prepended mention against the platform limit', async () => {

@@ -117,7 +117,7 @@ interface PlatformCommentClient {
 }
 
 interface PlatformCapabilities {
-  maxThreadDepth: number;    // 1 = flat replies (Instagram, TikTok, YouTube)
+  maxThreadDepth: number | null; // 1 = flat (Instagram, TikTok); null = unbounded (X)
   maxBodyLength: number;
   supportsWebhooks: boolean; // false → poll
   mentionOnReparent: boolean;

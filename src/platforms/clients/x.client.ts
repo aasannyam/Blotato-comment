@@ -40,7 +40,7 @@ export class XCommentClient implements PlatformCommentClient {
   readonly platform = 'x';
 
   readonly capabilities: PlatformCapabilities = {
-    maxThreadDepth: Number.MAX_SAFE_INTEGER, // arbitrary nesting; never re-parented
+    maxThreadDepth: null, // arbitrary nesting; never re-parented
     maxBodyLength: 280,
     supportsWebhooks: false,
     mentionOnReparent: false,

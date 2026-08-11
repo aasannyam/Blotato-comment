@@ -158,11 +158,12 @@ export class RepliesService {
     parent: Comment | null,
     capabilities: PlatformCapabilities,
   ): Promise<{ parent: Comment | null; requested: Comment | null; reparented: boolean }> {
-    if (!parent || parent.depth + 1 <= capabilities.maxThreadDepth) {
+    const maxDepth = capabilities.maxThreadDepth;
+    if (!parent || maxDepth === null || parent.depth + 1 <= maxDepth) {
       return { parent, requested: parent, reparented: false };
     }
 
-    const ancestorPath = ancestorPathAtDepth(parent.path, capabilities.maxThreadDepth - 1);
+    const ancestorPath = ancestorPathAtDepth(parent.path, maxDepth - 1);
     const ancestor = await this.comments.findByPath(ctx.post.workspaceId, ctx.post.id, ancestorPath);
 
     return { parent: ancestor ?? parent, requested: parent, reparented: true };
