@@ -3,13 +3,13 @@ import {
   FetchCommentsPage,
   FetchCommentsParams,
   PlatformCapabilities,
-  PlatformCommentClient,
   PlatformContext,
   PublishReplyParams,
   PublishReplyResult,
   RawPlatformComment,
 } from '../platform-client.interface';
 import { TokenVault } from '../token-vault.service';
+import { HttpPlatformClient } from './http-platform.client';
 import { platformFetch } from './http';
 
 const API = 'https://graph.facebook.com/v21.0';
@@ -35,7 +35,7 @@ const REPLY_FIELDS = 'id,text,timestamp,username,like_count,from';
 const MAX_REPLY_PAGES = 10;
 
 @Injectable()
-export class InstagramCommentClient implements PlatformCommentClient {
+export class InstagramCommentClient extends HttpPlatformClient {
   readonly platform = 'instagram';
 
   readonly capabilities: PlatformCapabilities = {
@@ -45,10 +45,12 @@ export class InstagramCommentClient implements PlatformCommentClient {
     mentionOnReparent: true,
   };
 
-  constructor(private readonly vault: TokenVault) {}
+  constructor(vault: TokenVault) {
+    super(vault);
+  }
 
   async fetchComments(ctx: PlatformContext, params: FetchCommentsParams): Promise<FetchCommentsPage> {
-    const token = await this.vault.getAccessToken(ctx.credentialRef, this.platform);
+    const token = await this.token(ctx);
 
     const url = new URL(`${API}/${params.platformPostId}/comments`);
     url.searchParams.set(
@@ -86,7 +88,7 @@ export class InstagramCommentClient implements PlatformCommentClient {
   }
 
   async publishReply(ctx: PlatformContext, params: PublishReplyParams): Promise<PublishReplyResult> {
-    const token = await this.vault.getAccessToken(ctx.credentialRef, this.platform);
+    const token = await this.token(ctx);
 
     const url = params.parentPlatformCommentId
       ? `${API}/${params.parentPlatformCommentId}/replies`

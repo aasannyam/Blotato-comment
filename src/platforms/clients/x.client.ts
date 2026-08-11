@@ -3,7 +3,6 @@ import {
   FetchCommentsPage,
   FetchCommentsParams,
   PlatformCapabilities,
-  PlatformCommentClient,
   PlatformContext,
   PublishReplyParams,
   PublishReplyResult,
@@ -11,6 +10,7 @@ import {
 } from '../platform-client.interface';
 import { PlatformError } from '../platform.errors';
 import { TokenVault } from '../token-vault.service';
+import { HttpPlatformClient } from './http-platform.client';
 import { platformFetch } from './http';
 
 const API = 'https://api.x.com/2';
@@ -31,7 +31,7 @@ interface XSearchResponse {
 }
 
 @Injectable()
-export class XCommentClient implements PlatformCommentClient {
+export class XCommentClient extends HttpPlatformClient {
   readonly platform = 'x';
 
   readonly capabilities: PlatformCapabilities = {
@@ -41,10 +41,12 @@ export class XCommentClient implements PlatformCommentClient {
     mentionOnReparent: false,
   };
 
-  constructor(private readonly vault: TokenVault) {}
+  constructor(vault: TokenVault) {
+    super(vault);
+  }
 
   async fetchComments(ctx: PlatformContext, params: FetchCommentsParams): Promise<FetchCommentsPage> {
-    const token = await this.vault.getAccessToken(ctx.credentialRef, this.platform);
+    const token = await this.token(ctx);
 
     // One paged search returns every depth; nesting rebuilt from `referenced_tweets`.
     const url = new URL(`${API}/tweets/search/recent`);
@@ -91,7 +93,7 @@ export class XCommentClient implements PlatformCommentClient {
   }
 
   async publishReply(ctx: PlatformContext, params: PublishReplyParams): Promise<PublishReplyResult> {
-    const token = await this.vault.getAccessToken(ctx.credentialRef, this.platform);
+    const token = await this.token(ctx);
 
     const res = await platformFetch<{ data?: { id: string } }>({
       platform: this.platform,
