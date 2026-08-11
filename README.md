@@ -127,28 +127,22 @@ every post ever published.
 `POST /v1/comments/:id/replies` writes a row with `delivery_status = 'pending'`
 and returns **202**. A dispatcher delivers it.
 
-Calling the platform inline turns a 30-second timeout into a 30-second HTTP
-request, makes a 429 the user's problem to retry by hand, and — worst — turns a
-network failure *after* the platform accepted the write into a duplicate public
-comment.
+Inline delivery fails three ways: a platform timeout becomes a 30-second HTTP
+request, a 429 becomes the user's problem to retry by hand, and a network failure
+*after* the platform accepted the write becomes a duplicate public comment.
 
-The reply row **is** the queue entry and **is** the comment, so:
+The reply row **is** the queue entry **and** the comment:
 
-- one INSERT both accepts and enqueues; a reply cannot be accepted but unqueued,
-- it appears in its thread instantly, in the right position,
-- `Idempotency-Key` is enforced by a unique index, so a retried POST returns the
-  original reply instead of posting twice.
+- one INSERT accepts and enqueues — never one without the other
+- it appears in its thread instantly, in position
+- `Idempotency-Key` on a unique index makes a retried POST return the original
 
-Workers claim with `FOR UPDATE SKIP LOCKED`, which scales horizontally with no
-broker and no lock service. Claiming also pushes the next-attempt time forward as
-a visibility timeout, so a worker that dies mid-delivery releases its rows instead
-of stranding them. The poller claims the same way, for the same reason.
-
-Retries use exponential backoff **with full jitter**: an outage fails every
-pending reply at once, and without jitter they would all retry in the same
-instant. Failures that need a human rather than time — revoked token, rejected
-body, or a write the platform accepted without returning an id — fail immediately
-instead of burning the attempt budget.
+| Mechanism | Effect |
+|---|---|
+| `FOR UPDATE SKIP LOCKED` claim | Scales horizontally, no broker or lock service. The poller claims the same way. |
+| Claim pushes next-attempt forward | Visibility timeout: a worker that dies mid-delivery releases its rows |
+| Backoff with **full jitter** | An outage fails every reply at once; jitter stops them retrying in the same instant |
+| Terminal vs. retryable split | Revoked token, rejected body, or a write accepted without an id fail immediately instead of burning attempts |
 
 ---
 
@@ -166,22 +160,15 @@ interface PlatformCapabilities {
 ```
 
 Domain code branches on capabilities, never on `platform === 'instagram'`.
-**Adding a platform is one class plus one entry in the `CLIENTS` array** — no
-service, controller, entity or migration changes. `platform` is stored as `text`
-and typed as `string`, so onboarding one never requires a migration.
+**Adding one is a class plus an entry in the `CLIENTS` array** — no service,
+controller, entity or migration change, since `platform` is `text`, not an enum.
 
-Two things this bought:
+What that buys:
 
-**Depth clamping.** Instagram flattens a reply-to-a-reply. Storing the requested
-parent would leave our mirror disagreeing with the platform on the next sync, so
-the reply is re-parented to the deepest allowed ancestor, `@mentions` the person
-actually being answered, and the response says `wasReparented: true`. The length
-check runs *after* the mention is prepended, since it counts against the limit
-and discovering that at delivery time is a failure the user cannot fix.
-
-**Capability discovery.** `GET /v1/platforms` serves the same objects the backend
-enforces, so clients render correct counters and nesting rules instead of
-shipping their own copy of the platform matrix and drifting from it.
+| | |
+|---|---|
+| **Depth clamping** | Instagram flattens a reply-to-a-reply, so we re-parent to the deepest allowed ancestor, `@mention` the real target, and return `wasReparented: true` — otherwise our mirror disagrees with the platform on the next sync. Length is checked *after* the mention, since it counts against the limit. |
+| **Capability discovery** | `GET /v1/platforms` serves the same objects the backend enforces, so clients don't ship their own copy of the platform matrix and drift from it. |
 
 ---
 
@@ -268,26 +255,15 @@ I used **Claude** and **ChatGPT**, for two things:
 
 Left out on purpose, in the order I'd pick them up.
 
-1. **CI against a real Postgres.** Every bug under Tests came from running the
-   thing, and none of them were reachable by stubs. One workflow with a service
-   container closes that gap permanently.
-2. **Per-account rate-limit budgeting.** The most load-bearing gap, since the
-   mirror is justified by protecting that budget. Adaptive polling and
-   `Retry-After` are half of it; a token bucket shared by sync and publish —
-   because the limit is per account while the unit of work is a post — is the
-   rest.
-3. **Bounded dispatch concurrency.** Delivery is sequential per batch, so one
-   slow platform call throttles the queue. Ordering between two replies to the
-   same thread needs a serialization key at the same time.
-4. **Multi-tenant fairness.** Both workers claim in global due-time order, so a
-   single large workspace can starve the rest. Per-workspace quota belongs in
-   the claim query itself.
-5. **Webhook receivers.** The capability flag, the polling fallback and the
-   method a receiver calls (`CommentSyncService.ingest`) already exist; what is
-   missing is per-platform signature verification.
-6. **Per-account capabilities.** They are static per adapter today, while real
-   platforms vary by API tier and permission scope — the capability model's
-   ceiling. Resolving them from `PlatformContext` lifts it.
-7. **Deleting and hiding comments**, and a reply audit trail beyond
-   `delivery_attempts` / `last_error`. A broker is not on this list: Postgres as
-   the queue is right at this scale, and the swap sits behind one class.
+| # | What | Why it's next | Shape |
+|---|---|---|---|
+| 1 | **CI on real Postgres** | Every bug under Tests needed a database to find; stubs reach none of them | One workflow, a service container, the demo flow |
+| 2 | **Per-account rate-limit budget** | The mirror exists to protect this budget and nothing enforces it. The limit is per *account*; the unit of work is a *post* | Token bucket both workers check before calling out |
+| 3 | **Bounded dispatch concurrency** | Delivery is sequential, so one slow platform call throttles the whole queue | Concurrency cap, plus a per-thread key for ordering |
+| 4 | **Multi-tenant fairness** | Both workers claim in global due-time order, so one big workspace starves the rest | Per-workspace quota inside the claim query |
+| 5 | **Webhook receivers** | The flag, the polling fallback and `CommentSyncService.ingest` already exist | Per-platform signature verification |
+| 6 | **Per-account capabilities** | Static per adapter, while real platforms vary by API tier and scope — the model's ceiling | Resolve from `PlatformContext` instead of a field |
+| 7 | **Delete/hide + reply audit** | Not in the brief, and cheap once the pattern exists | One capability flag, one adapter method |
+
+**Not on the list: a broker.** Postgres as the queue is right at this scale, and
+the swap sits behind one class if that changes.
