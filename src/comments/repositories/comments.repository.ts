@@ -156,13 +156,15 @@ export class CommentsRepository {
    * makes that a no-op. Threading columns are never updated: rewriting a path
    * would invalidate every descendant's.
    */
-  async upsertMirrored(comment: Comment): Promise<void> {
+  async upsertMirrored(comments: Comment[]): Promise<void> {
+    if (comments.length === 0) return;
+
     await this.repo
       .createQueryBuilder()
       .insert()
       .into(Comment)
-      // TypeORM's deep-partial insert type does not model jsonb columns; this is a real entity.
-      .values(comment as unknown as QueryDeepPartialEntity<Comment>)
+      // TypeORM's deep-partial insert type does not model jsonb columns; these are real entities.
+      .values(comments as unknown as QueryDeepPartialEntity<Comment>[])
       .onConflict(
         `(social_account_id, platform_comment_id) WHERE platform_comment_id IS NOT NULL
          DO UPDATE SET

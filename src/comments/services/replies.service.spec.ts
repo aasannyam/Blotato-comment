@@ -148,6 +148,26 @@ describe('RepliesService.createReply', () => {
     expect(comments.findByPath).not.toHaveBeenCalled();
   });
 
+  it('still mentions the target when a longer handle merely contains it', async () => {
+    const target = comment({
+      id: 'c-2',
+      depth: 1,
+      path: 'a/b',
+      author: { handle: 'nina' },
+    });
+
+    const { service } = buildService({ parent: target, ancestor: comment({ id: 'c-1' }) });
+
+    const { comment: reply } = await service.createReply({
+      workspaceId: 'ws-1',
+      parentCommentId: 'c-2',
+      body: 'ask @ninaK about it',
+    });
+
+    // "@nina" occurs inside "@ninaK", but not as a handle.
+    expect(reply.body).toBe('@nina ask @ninaK about it');
+  });
+
   it('counts a prepended mention against the platform limit', async () => {
     const target = comment({ id: 'c-2', depth: 1, path: 'a/b', author: { handle: 'nina' } });
 

@@ -30,6 +30,11 @@ export interface CreateReplyOutcome {
 
 const PG_UNIQUE_VIOLATION = '23505';
 
+/** Handles are platform-controlled, so they cannot be trusted as regex source. */
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 @Injectable()
 export class RepliesService {
   constructor(
@@ -178,7 +183,9 @@ export class RepliesService {
     if (!target.reparented || !capabilities.mentionOnReparent) return body;
 
     const handle = target.requested?.author?.handle;
-    if (!handle || body.includes(`@${handle}`)) return body;
+    // Whole-handle match: `includes` treated "@nina" as present in "@ninaK",
+    // silently dropping the mention the re-parented reply depends on.
+    if (!handle || new RegExp(`@${escapeRegExp(handle)}(?![\\w.])`).test(body)) return body;
     return `@${handle} ${body}`;
   }
 
