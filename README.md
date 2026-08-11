@@ -60,10 +60,9 @@ Everything else in this document follows from that shape:
 - [Platforms](#platforms)
 - [API](#api)
 - [Data model](#data-model)
-- [Assumptions](#assumptions)
-- [Not built](#not-built)
 - [Tests](#tests)
 - [AI usage](#ai-usage)
+- [What I'd build next](#what-id-build-next)
 
 ---
 
@@ -232,37 +231,6 @@ is write-heavy.
 
 ---
 
-## Assumptions
-
-Left unspecified by the brief; each sits behind a seam.
-
-| Assumption | What that means here |
-|---|---|
-| **Auth exists** | `X-Workspace-Id` stands in for it. Only the *source* of the id is stubbed: every service method takes `workspaceId` and every query filters on it. Another workspace's post returns `404`, not `403` — `403` would confirm the id exists. |
-| **OAuth storage exists** | `TokenVault` is the abstraction. Rows hold a `credential_ref`, never a token, fetched per call so a refresh lands on the next attempt. |
-| **Posts and accounts exist** | Modelled only as deep as comments need. |
-| **Published posts only** | No thread exists before publication. Check constraint + `409`. |
-| **Platform counters are authoritative** | `likeCount`/`replyCount` may exceed what we mirrored; clients use them to know more exists. |
-| **Own posts only** | Monitoring third-party posts is a different product with different permissions. |
-| **Platform retention bounds first capture** | X reads a 7-day search window, so older replies can't be mirrored by any amount of paging. Once mirrored, a comment is ours and stays. |
-
----
-
-## Not built
-
-Called out rather than half-built.
-
-| Gap | Where it stands |
-|---|---|
-| **Per-account rate-limit budgeting** | The most load-bearing gap: the mirror is justified by protecting this budget. Adaptive polling and `Retry-After` are half; a token bucket shared by sync and publish is the rest. |
-| **Webhook receivers** | The capability flag, the polling fallback and the method a receiver would call (`CommentSyncService.ingest`) all exist. Missing: per-platform signature verification. |
-| **Multi-tenant fairness** | Both workers claim in global due-time order, so one large workspace can starve others. |
-| **Bounded dispatch concurrency** | Delivery is sequential per batch, and no ordering is guaranteed between two replies to one thread. |
-| **Per-account capabilities** | Static per adapter, while real platforms vary by API tier and scope. The capability model's ceiling. |
-| **Delete/hide, a broker, reply audit** | Not in the brief. Postgres-as-queue is correct at this scale; the swap sits behind one class. |
-
----
-
 ## Tests
 
 **25 unit tests, no database** — depth clamping and mentions, idempotent replay
@@ -285,15 +253,45 @@ the next step and isn't here.
 
 ## AI usage
 
-I used Claude (Claude Code) throughout, the way I'd use a fast pair: I made the
-architectural calls — mirror-vs-proxy, outbox-vs-inline, capability-driven
-adapters, the threading representation — and used it to draft implementations
-against them, then reviewed and cut hard.
+I used **Claude** and **ChatGPT**, for two things:
 
-Two passes were specifically about *removing* AI output: one dropped a third
-adapter, a `DELETE` endpoint, a redundant sync route and unused columns; the
-other reduced code comments to single lines, moving the reasoning here instead.
+- **Setting up the template** — the NestJS/TypeORM scaffolding, config wiring and
+  boilerplate around the parts that matter.
+- **Discussing architecture-level decisions** — mirror vs. proxy, outbox vs.
+  inline delivery, capability-driven adapters, how to represent threading. I used
+  them to argue both sides of each before committing to one, which is also why
+  the reasoning for each is written down above rather than left implicit.
 
-I verified everything I kept. It typechecks, the tests pass, the migrations run
-on real Postgres, and the flow above was driven over HTTP — the bugs listed under
-Tests were found that way rather than taken on faith.
+Everything here was verified rather than trusted: it typechecks, the tests pass,
+the migrations run against real Postgres, and the whole flow was driven end to
+end over HTTP. The bugs listed under Tests were found that way.
+
+---
+
+## What I'd build next
+
+Left out on purpose, in the order I'd pick them up.
+
+1. **CI against a real Postgres.** Every bug under Tests came from running the
+   thing, and none of them were reachable by stubs. One workflow with a service
+   container closes that gap permanently.
+2. **Per-account rate-limit budgeting.** The most load-bearing gap, since the
+   mirror is justified by protecting that budget. Adaptive polling and
+   `Retry-After` are half of it; a token bucket shared by sync and publish —
+   because the limit is per account while the unit of work is a post — is the
+   rest.
+3. **Bounded dispatch concurrency.** Delivery is sequential per batch, so one
+   slow platform call throttles the queue. Ordering between two replies to the
+   same thread needs a serialization key at the same time.
+4. **Multi-tenant fairness.** Both workers claim in global due-time order, so a
+   single large workspace can starve the rest. Per-workspace quota belongs in
+   the claim query itself.
+5. **Webhook receivers.** The capability flag, the polling fallback and the
+   method a receiver calls (`CommentSyncService.ingest`) already exist; what is
+   missing is per-platform signature verification.
+6. **Per-account capabilities.** They are static per adapter today, while real
+   platforms vary by API tier and permission scope — the capability model's
+   ceiling. Resolving them from `PlatformContext` lifts it.
+7. **Deleting and hiding comments**, and a reply audit trail beyond
+   `delivery_attempts` / `last_error`. A broker is not on this list: Postgres as
+   the queue is right at this scale, and the swap sits behind one class.
