@@ -7,6 +7,7 @@ export interface AppConfig {
   reply: { maxAttempts: number; dispatchBatchSize: number };
   sync: { pollBatchSize: number };
   comments: { staleAfterSeconds: number };
+  platforms: { fakeEnabled: boolean };
 }
 
 function int(value: string | undefined, fallback: number): number {
@@ -27,4 +28,8 @@ export default (): AppConfig => ({
   },
   sync: { pollBatchSize: int(process.env.SYNC_POLL_BATCH_SIZE, 20) },
   comments: { staleAfterSeconds: int(process.env.COMMENT_STALE_AFTER_SECONDS, 120) },
+  platforms: {
+    // Opt-in, and never on in production even if the flag is set by accident.
+    fakeEnabled: process.env.ENABLE_FAKE_PLATFORM === 'true' && process.env.NODE_ENV !== 'production',
+  },
 });

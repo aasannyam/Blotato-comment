@@ -9,10 +9,15 @@ import {
   PublishReplyResult,
   RawPlatformComment,
 } from '../platform-client.interface';
-import { TokenVaultService } from '../token-vault.service';
+import { TokenVault } from '../token-vault.service';
 import { platformFetch } from './http';
 
 const API = 'https://graph.facebook.com/v21.0';
+
+interface IgPaging {
+  cursors?: { after?: string };
+  next?: string;
+}
 
 interface IgComment {
   id: string;
@@ -21,8 +26,13 @@ interface IgComment {
   username?: string;
   from?: { id?: string; username?: string };
   like_count?: number;
-  replies?: { data: IgComment[] };
+  replies?: { data: IgComment[]; paging?: IgPaging };
 }
+
+const REPLY_FIELDS = 'id,text,timestamp,username,like_count,from';
+
+// Guards against a pathological thread turning one sync into unbounded calls.
+const MAX_REPLY_PAGES = 10;
 
 @Injectable()
 export class InstagramCommentClient implements PlatformCommentClient {
@@ -35,7 +45,7 @@ export class InstagramCommentClient implements PlatformCommentClient {
     mentionOnReparent: true,
   };
 
-  constructor(private readonly vault: TokenVaultService) {}
+  constructor(private readonly vault: TokenVault) {}
 
   async fetchComments(ctx: PlatformContext, params: FetchCommentsParams): Promise<FetchCommentsPage> {
     const token = await this.vault.getAccessToken(ctx.credentialRef, this.platform);
@@ -43,22 +53,31 @@ export class InstagramCommentClient implements PlatformCommentClient {
     const url = new URL(`${API}/${params.platformPostId}/comments`);
     url.searchParams.set(
       'fields',
-      'id,text,timestamp,username,like_count,from,replies{id,text,timestamp,username,like_count,from}',
+      `${REPLY_FIELDS},replies{${REPLY_FIELDS}}`,
     );
     url.searchParams.set('limit', String(params.limit));
     if (params.cursor) url.searchParams.set('after', params.cursor);
 
-    const res = await platformFetch<{
-      data?: IgComment[];
-      paging?: { cursors?: { after?: string }; next?: string };
-    }>({ platform: this.platform, url: url.toString(), token });
+    const res = await platformFetch<{ data?: IgComment[]; paging?: IgPaging }>({
+      platform: this.platform,
+      url: url.toString(),
+      token,
+    });
 
-    // Replies arrive nested in the same response, so a page covers whole threads.
     const comments: RawPlatformComment[] = [];
     for (const top of res.data ?? []) {
       comments.push(this.normalize(top, null, ctx));
       for (const reply of top.replies?.data ?? []) {
         comments.push(this.normalize(reply, top.id, ctx));
+      }
+
+      // The nested expansion is capped by Graph, so a busy thread arrives
+      // truncated. Left unfollowed the mirror silently loses replies while
+      // still reporting itself fresh.
+      if (top.replies?.paging?.next) {
+        for (const reply of await this.fetchRemainingReplies(top, token, ctx)) {
+          comments.push(reply);
+        }
       }
     }
 
@@ -84,26 +103,63 @@ export class InstagramCommentClient implements PlatformCommentClient {
     return { platformCommentId: res.id, createdAt: new Date(), permalink: null };
   }
 
+  private async fetchRemainingReplies(
+    top: IgComment,
+    token: string,
+    ctx: PlatformContext,
+  ): Promise<RawPlatformComment[]> {
+    const out: RawPlatformComment[] = [];
+    let after = top.replies?.paging?.cursors?.after ?? null;
+
+    for (let page = 0; page < MAX_REPLY_PAGES && after; page++) {
+      const url = new URL(`${API}/${top.id}/replies`);
+      url.searchParams.set('fields', REPLY_FIELDS);
+      url.searchParams.set('limit', '50');
+      url.searchParams.set('after', after);
+
+      const res = await platformFetch<{ data?: IgComment[]; paging?: IgPaging }>({
+        platform: this.platform,
+        url: url.toString(),
+        token,
+      });
+
+      for (const reply of res.data ?? []) out.push(this.normalize(reply, top.id, ctx));
+      after = res.paging?.next ? (res.paging.cursors?.after ?? null) : null;
+    }
+
+    return out;
+  }
+
   private normalize(
     comment: IgComment,
     parentId: string | null,
     ctx: PlatformContext,
   ): RawPlatformComment {
-    const authorId = comment.from?.id ?? comment.username ?? 'unknown';
+    // Graph omits `from` on comments from other users. Falling back to a
+    // username put a handle in the same field as an account id: owner checks
+    // compared two namespaces, and a shared 'unknown' merged distinct authors.
+    const username = comment.username ?? comment.from?.username ?? null;
+    const platformUserId = comment.from?.id
+      ? comment.from.id
+      : username
+        ? `username:${username}`
+        : `comment:${comment.id}`;
+
     return {
       platformCommentId: comment.id,
       parentPlatformCommentId: parentId,
       body: comment.text,
       author: {
-        platformUserId: authorId,
-        handle: comment.username ?? comment.from?.username ?? null,
-        displayName: comment.from?.username ?? comment.username ?? null,
+        platformUserId,
+        handle: username,
+        displayName: username,
         avatarUrl: null,
       },
       createdAt: new Date(comment.timestamp),
       likeCount: comment.like_count ?? null,
       replyCount: comment.replies?.data.length ?? null,
-      isFromOwner: authorId === ctx.platformAccountId,
+      // Only a real account id can establish ownership; a handle match cannot.
+      isFromOwner: comment.from?.id === ctx.platformAccountId,
       permalink: null,
       raw: comment as unknown as Record<string, unknown>,
     };

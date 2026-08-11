@@ -127,8 +127,13 @@ interface PlatformCapabilities {
 ```
 
 Domain code branches on capabilities, never on `platform === 'instagram'`.
-**Adding a platform is one class plus one line in `PlatformsModule`** — no
-service, controller, entity or migration changes.
+**Adding a platform is one class plus one entry in the `CLIENTS` array** in
+`PlatformsModule` — no service, controller, entity or migration changes.
+
+The `fake` adapter implements the same interface but publishes into memory and
+reports success, so it is registered only behind `ENABLE_FAKE_PLATFORM` and
+never under `NODE_ENV=production`. A test double that ships in the real
+platform list is one bad row away from silently swallowing a customer's reply.
 
 Two things this bought:
 
@@ -278,6 +283,10 @@ Left unspecified by the brief; each is isolated behind a seam:
    whether more exists.
 6. **Only the connected account's own posts.** Monitoring third-party posts is a
    different product with different permissions.
+7. **Each platform's own retention window bounds the mirror.** X's adapter reads
+   `tweets/search/recent`, which only covers seven days, so replies older than
+   that cannot be mirrored or backfilled by any amount of paging. Once mirrored
+   a comment is ours and stays; the limit is on first capture, not on storage.
 
 ---
 
@@ -286,8 +295,9 @@ Left unspecified by the brief; each is isolated behind a seam:
 Scope discipline matters more than surface area, so these are called out rather
 than half-built:
 
-- **Webhook ingestion endpoints.** The capability flag and the polling fallback
-  are in place; the receiver is per-platform signature verification work.
+- **Webhook ingestion endpoints.** The capability flag, the polling fallback and
+  the ingestion method a receiver would call (`CommentSyncService.ingest`) are
+  in place; what is missing is per-platform signature verification.
 - **Deleting/hiding comments.** Not in the brief. It would be another capability
   flag and one adapter method.
 - **A broker (BullMQ/SQS).** Postgres-as-queue is correct at this scale and

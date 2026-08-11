@@ -10,7 +10,7 @@ import {
   RawPlatformComment,
 } from '../platform-client.interface';
 import { PlatformError } from '../platform.errors';
-import { TokenVaultService } from '../token-vault.service';
+import { TokenVault } from '../token-vault.service';
 import { platformFetch } from './http';
 
 const API = 'https://api.x.com/2';
@@ -41,7 +41,7 @@ export class XCommentClient implements PlatformCommentClient {
     mentionOnReparent: false,
   };
 
-  constructor(private readonly vault: TokenVaultService) {}
+  constructor(private readonly vault: TokenVault) {}
 
   async fetchComments(ctx: PlatformContext, params: FetchCommentsParams): Promise<FetchCommentsPage> {
     const token = await this.vault.getAccessToken(ctx.credentialRef, this.platform);
@@ -105,8 +105,9 @@ export class XCommentClient implements PlatformCommentClient {
     });
 
     if (!res.data?.id) {
+      // 2xx with no id: the tweet exists, so retrying would post it twice.
       throw new PlatformError({
-        code: 'UNKNOWN',
+        code: 'UNCONFIRMED_WRITE',
         platform: this.platform,
         message: 'reply accepted but no tweet id returned',
       });

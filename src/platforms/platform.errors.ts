@@ -8,6 +8,8 @@ export type PlatformErrorCode =
   | 'BODY_TOO_LONG'
   | 'DUPLICATE'
   | 'INVALID_REQUEST'
+  // Accepted but unidentified: never retryable, since a retry would post twice.
+  | 'UNCONFIRMED_WRITE'
   | 'UNKNOWN';
 
 const RETRYABLE = new Set<PlatformErrorCode>(['RATE_LIMITED', 'UNAVAILABLE', 'TIMEOUT', 'UNKNOWN']);

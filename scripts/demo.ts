@@ -4,9 +4,12 @@ import { DataSource } from 'typeorm';
 import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/bootstrap';
 import { FakeCommentClient } from '../src/platforms/clients/fake.client';
-import { TokenVaultService } from '../src/platforms/token-vault.service';
+import { InMemoryTokenVault } from '../src/platforms/token-vault.service';
 
 async function main(): Promise<void> {
+  // The whole point of the demo is the in-memory platform; opt in explicitly.
+  process.env.ENABLE_FAKE_PLATFORM = 'true';
+
   const app = await NestFactory.create(AppModule, { logger: ['log', 'warn', 'error'] });
   configureApp(app);
 
@@ -27,7 +30,7 @@ async function main(): Promise<void> {
     [postId, workspaceId, accountId, platformPostId],
   );
 
-  app.get(TokenVaultService).set('demo-credential', 'demo-token');
+  app.get(InMemoryTokenVault).set('demo-credential', 'demo-token');
 
   const fake = app.get(FakeCommentClient);
   const first = fake.seed(platformPostId, {

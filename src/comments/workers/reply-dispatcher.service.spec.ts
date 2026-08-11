@@ -56,6 +56,25 @@ describe('ReplyDispatcherService.deliver', () => {
     expect(publish.mock.calls[0][1]).toMatchObject({ requestId: 'r-1' });
   });
 
+  it('never retries a write the platform accepted but did not identify', async () => {
+    const publish = jest
+      .fn()
+      .mockRejectedValue(
+        new PlatformError({
+          code: 'UNCONFIRMED_WRITE',
+          platform: 'fake',
+          message: 'reply accepted but no id returned',
+        }),
+      );
+    const { dispatcher, comments } = buildDispatcher(publish);
+
+    await dispatcher.deliver(reply({ deliveryAttempts: 1 }));
+
+    // The comment is already public; a retry would post it a second time.
+    expect(comments.markFailed).toHaveBeenCalled();
+    expect(comments.markRetry).not.toHaveBeenCalled();
+  });
+
   it('schedules a retry for a transient failure', async () => {
     const publish = jest
       .fn()
