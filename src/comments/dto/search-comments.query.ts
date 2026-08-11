@@ -2,10 +2,6 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import { IsBoolean, IsISO8601, IsIn, IsInt, IsOptional, IsString, IsUUID, Max, Min } from 'class-validator';
 
-/**
- * Filters for the flat collection. Every field is optional, so the bare
- * endpoint is "all comments in this workspace" and each parameter narrows it.
- */
 export class SearchCommentsQuery {
   @ApiPropertyOptional({ minimum: 1, maximum: 100, default: 25 })
   @IsOptional()

@@ -8,10 +8,6 @@ import { CreateReplyDto } from '../dto/create-reply.dto';
 import { ListCommentsQuery } from '../dto/list-comments.query';
 import { RepliesService } from '../services/replies.service';
 
-/**
- * Comments are nested under the post because a comment has no meaning without
- * one. Individual comments get their own top-level resource once you know an id.
- */
 @ApiTags('comments')
 @ApiHeader({ name: 'X-Workspace-Id', required: true })
 @Controller('v1/posts/:postId/comments')

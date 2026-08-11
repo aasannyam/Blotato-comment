@@ -24,10 +24,6 @@ interface IgComment {
   replies?: { data: IgComment[] };
 }
 
-/**
- * Instagram. Replies are exactly one level deep — a reply to a reply is
- * flattened by the platform — which is the case `maxThreadDepth` exists for.
- */
 @Injectable()
 export class InstagramCommentClient implements PlatformCommentClient {
   readonly platform = 'instagram';

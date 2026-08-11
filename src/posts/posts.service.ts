@@ -19,11 +19,6 @@ export class PostsService {
     @InjectRepository(SocialAccount) private readonly accounts: Repository<SocialAccount>,
   ) {}
 
-  /**
-   * The single entry point for "a post I am allowed to touch". Every comment
-   * operation starts here, which is what guarantees the workspace predicate is
-   * never forgotten — there is no other path to a post.
-   */
   async getPublishedPost(workspaceId: string, postId: string): Promise<PublishedPostContext> {
     const post = await this.posts.findOne({ where: { id: postId, workspaceId } });
     // Another workspace's post reads as missing; 403 would confirm the id exists.

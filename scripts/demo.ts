@@ -6,11 +6,6 @@ import { configureApp } from '../src/bootstrap';
 import { FakeCommentClient } from '../src/platforms/clients/fake.client';
 import { TokenVaultService } from '../src/platforms/token-vault.service';
 
-/**
- * Boots the API against the in-memory `fake` platform with a published post and
- * a seeded thread, so the whole flow — sync, listing, replying, the outbox
- * dispatcher — is exercisable without real credentials.
- */
 async function main(): Promise<void> {
   const app = await NestFactory.create(AppModule, { logger: ['log', 'warn', 'error'] });
   configureApp(app);

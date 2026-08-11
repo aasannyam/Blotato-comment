@@ -13,11 +13,6 @@ import { CommentAuthor } from './comment-author.entity';
 export type CommentOrigin = 'platform' | 'blotato';
 export type DeliveryStatus = 'pending' | 'sending' | 'sent' | 'failed';
 
-/**
- * Mirrored comments and outbound replies share one table: an undelivered reply
- * still has to appear in its thread, in position, the instant it is written.
- * Splitting them would force every read path to union two sources.
- */
 @Entity('comments')
 @Index('ix_comments_post_thread', ['postId', 'depth', 'sortAt', 'id'])
 @Index('ix_comments_parent', ['parentId', 'sortAt', 'id'])
@@ -88,10 +83,6 @@ export class Comment {
   @Column('timestamptz', { name: 'platform_created_at', nullable: true })
   platformCreatedAt!: Date | null;
 
-  /**
-   * Generated `COALESCE(platform_created_at, created_at)`: one sort key, so a
-   * pending reply orders correctly and does not jump position once delivered.
-   */
   @Column({ type: 'timestamptz', name: 'sort_at', insert: false, update: false })
   sortAt!: Date;
 

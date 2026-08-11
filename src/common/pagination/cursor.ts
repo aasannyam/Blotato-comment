@@ -1,13 +1,5 @@
 import { InvalidCursorException } from '../errors/domain.exception';
 
-/**
- * Keyset pagination, not offset. Comment lists are append-heavy and mutate under
- * the reader: OFFSET degrades on deep pages and silently skips or repeats rows
- * when new comments land mid-scroll.
- *
- * Opaque base64 so the contents stay ours to change. Not signed — it carries no
- * authorisation, and every query is re-scoped to the caller's workspace anyway.
- */
 export interface CursorPayload {
   /** Sort key of the last row: a timestamp, or a path for thread ordering. */
   k: string;

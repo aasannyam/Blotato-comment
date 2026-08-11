@@ -11,14 +11,6 @@ const BASE_BACKOFF_MS = 2_000;
 const MAX_BACKOFF_MS = 30 * 60_000;
 const VISIBILITY_SECONDS = 60;
 
-/**
- * Drains the reply outbox.
- *
- * Postgres is the queue, deliberately: the reply row *is* the queue entry, so
- * enqueueing shares the write's transaction and there is no way to accept a
- * comment that never got queued. `SKIP LOCKED` gives horizontal scaling with no
- * coordination. Swapping in a broker later is a change to this one class.
- */
 @Injectable()
 export class ReplyDispatcherService {
   private readonly logger = new Logger(ReplyDispatcherService.name);
@@ -62,8 +54,7 @@ export class ReplyDispatcherService {
       const ctx = await this.posts.getPublishedPost(reply.workspaceId, reply.postId);
       const client = this.registry.get(reply.platform);
 
-      // The parent's platform id, not ours. Covers the race where a parent reply
-      // failed after this one was accepted.
+      // The parent's platform id, not ours: its own delivery may have failed since.
       let parentPlatformCommentId: string | null = null;
       if (reply.parentId) {
         const parent = await this.comments.findById(reply.workspaceId, reply.parentId);
@@ -82,8 +73,7 @@ export class ReplyDispatcherService {
         platformPostId: ctx.post.platformPostId,
         parentPlatformCommentId,
         body: reply.body,
-        // Stable across retries, so a platform that deduplicates can collapse an
-        // ambiguous timeout instead of double-posting.
+        // Stable across retries, so a deduplicating platform collapses an ambiguous timeout.
         requestId: reply.id,
       });
 
@@ -106,8 +96,7 @@ export class ReplyDispatcherService {
       retryable: platformError?.retryable ?? false,
     };
 
-    // A revoked token or a rejected body does not improve with retries; burning
-    // the attempt budget only delays telling the user something actionable.
+    // A revoked token or rejected body never improves with retries.
     if (!detail.retryable || reply.deliveryAttempts >= this.maxAttempts) {
       await this.comments.markFailed(reply.id, detail);
       this.logger.warn(`Reply ${reply.id} failed permanently: ${detail.code}`);
@@ -126,11 +115,6 @@ export class ReplyDispatcherService {
     await this.comments.markRetry(reply.id, new Date(Date.now() + delay), detail);
   }
 
-  /**
-   * Exponential backoff with full jitter. The jitter matters more than the
-   * exponent: an outage fails every pending reply at once, and without it they
-   * would all retry in the same instant.
-   */
   private backoff(attempt: number): number {
     const ceiling = Math.min(BASE_BACKOFF_MS * 2 ** attempt, MAX_BACKOFF_MS);
     return Math.round(ceiling / 2 + Math.random() * (ceiling / 2));

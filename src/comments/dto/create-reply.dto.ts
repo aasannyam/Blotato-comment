@@ -10,8 +10,7 @@ export class CreateReplyDto {
   })
   @IsString()
   @MinLength(1)
-  // Transport ceiling only: above every platform limit, so it blocks abuse
-  // without pre-empting the real per-platform check.
+  // Transport ceiling only; the real per-platform limit is checked later.
   @MaxLength(10_000)
   body!: string;
 }

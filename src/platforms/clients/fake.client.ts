@@ -11,14 +11,6 @@ import {
   RawPlatformComment,
 } from '../platform-client.interface';
 
-/**
- * In-memory platform for local development and tests.
- *
- * Not scaffolding — it is the proof the abstraction holds: same interface,
- * entirely different mechanics, and it lets sync, the outbox, threading and
- * pagination be exercised end to end without credentials or network. It also
- * honours `requestId`, so the idempotency path is genuinely covered.
- */
 @Injectable()
 export class FakeCommentClient implements PlatformCommentClient {
   readonly platform = 'fake';
@@ -66,8 +58,7 @@ export class FakeCommentClient implements PlatformCommentClient {
   }
 
   async publishReply(ctx: PlatformContext, params: PublishReplyParams): Promise<PublishReplyResult> {
-    // Models a platform with request deduplication: replaying a requestId
-    // returns the original result instead of creating a second comment.
+    // Models platform deduplication: replaying a requestId returns the original.
     const existing = this.published.get(params.requestId);
     if (existing) return existing;
 

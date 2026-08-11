@@ -1,16 +1,10 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-/**
- * Explicit SQL rather than ORM-generated: the partial indexes, the generated
- * column and the check constraints are the design, and they belong in a diff a
- * human reads.
- */
 export class InitCommentSystem1710000000000 implements MigrationInterface {
   name = 'InitCommentSystem1710000000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    // Trimmed to what the comment system needs; these tables exist in fuller
-    // form in the real product.
+    // Trimmed to what the comment system needs; fuller in the real product.
     await queryRunner.query(`
       CREATE TABLE social_accounts (
         id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -147,14 +141,12 @@ export class InitCommentSystem1710000000000 implements MigrationInterface {
         WHERE deleted_at IS NULL;
     `);
 
-    // Subtree fetch: path LIKE '<ancestor>/%'. text_pattern_ops keeps the prefix
-    // match index-usable regardless of database collation.
+    // Subtree fetch; text_pattern_ops keeps the prefix match usable under any collation.
     await queryRunner.query(
       `CREATE INDEX ix_comments_path ON comments (post_id, path text_pattern_ops);`,
     );
 
-    // The dispatcher's claim query. Partial, so the index stays proportional to
-    // the queue rather than to all comment history.
+    // The dispatcher's claim query; partial, so it tracks the queue not all history.
     await queryRunner.query(`
       CREATE INDEX ix_comments_outbox_due ON comments (next_attempt_at, id)
         WHERE delivery_status IN ('pending', 'sending');

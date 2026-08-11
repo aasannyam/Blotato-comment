@@ -41,13 +41,6 @@ export class CommentsService {
     this.staleAfterSeconds = config.get<number>('comments.staleAfterSeconds', 120);
   }
 
-  /**
-   * Served from our mirror rather than proxied. Proxying would inherit the
-   * platform's latency and downtime on every read, spend a per-account rate
-   * limit that publishing also needs, and make a unified cursor impossible
-   * across platforms that paginate differently. The cost is staleness, so
-   * staleness is reported in `meta` instead of hidden.
-   */
   async listPostComments(
     workspaceId: string,
     postId: string,
@@ -60,8 +53,7 @@ export class CommentsService {
       try {
         await this.sync.syncPost(ctx, 1);
       } catch (error) {
-        // Degrade to cached data: slightly stale comments beat a 502, as long
-        // as the response says so.
+        // Degrade to cached data: stale comments beat a 502, as long as we say so.
         syncError = {
           code: error instanceof PlatformError ? error.code : 'UNKNOWN',
           message: error instanceof Error ? error.message : 'refresh failed',
@@ -85,14 +77,6 @@ export class CommentsService {
     return { ...page, meta: await this.meta(postId, syncError) };
   }
 
-  /**
-   * The read that only exists because comments are mirrored: it spans posts and
-   * platforms, so no single upstream API could serve it. `unansweredOnly` turns
-   * it into a moderation queue over everything the workspace has published.
-   *
-   * Deliberately carries no `meta` — staleness is per post, and a page here can
-   * mix posts synced at different times, so one flag would be meaningless.
-   */
   async searchComments(
     workspaceId: string,
     filters: SearchFilters,

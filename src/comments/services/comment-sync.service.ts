@@ -21,11 +21,6 @@ export interface SyncResult {
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 
-/**
- * How long a claimed post stays invisible to other workers. Long enough to
- * cover a slow platform call, short enough that a crashed worker's posts come
- * back promptly. A successful sync overwrites it with the real interval.
- */
 const POLL_VISIBILITY_SECONDS = 120;
 
 /** Extra pages allowed purely to resolve replies whose parent was not in view. */
@@ -42,11 +37,6 @@ export class CommentSyncService {
     private readonly state: SyncStateRepository,
   ) {}
 
-  /**
-   * Always re-reads from the head rather than resuming a stored cursor: comments
-   * are edited, deleted and moderated after the fact, so a cursor-only strategy
-   * drifts permanently out of sync. The upsert makes re-reading cheap.
-   */
   async syncPost(ctx: PublishedPostContext, maxPages = 1): Promise<SyncResult> {
     const client = this.registry.get(ctx.post.platform);
     const state = await this.ensureState(ctx);
@@ -70,9 +60,7 @@ export class CommentSyncService {
         cursor = result.nextCursor;
         if (!cursor) break;
 
-        // Past the page budget, keep paging only while the last page left
-        // replies whose parent we have not seen. Without this they are deferred
-        // again on every poll, because we always restart from the head.
+        // Past the page budget, keep paging only while orphans remain unresolved.
         if (page + 1 >= maxPages && persisted.deferred === 0) break;
       }
       await this.recordSuccess(state, ctx);
@@ -90,12 +78,6 @@ export class CommentSyncService {
     return { imported, deferred, syncedAt: new Date() };
   }
 
-  /**
-   * A comment we have seen must keep its existing id, depth and path, or its
-   * children would point at a row that never existed. Replies can also precede
-   * their parent in a page: oldest-first handles the common case, and anything
-   * still unresolved is deferred rather than silently flattened to top level.
-   */
   async ingest(
     ctx: PublishedPostContext,
     raw: readonly RawPlatformComment[],
@@ -153,9 +135,7 @@ export class CommentSyncService {
         deliveryStatus: null,
       });
 
-      // Ordered oldest-first, and a child is only reached once its parent is
-      // known, so parents precede children in the batch and the self-referencing
-      // foreign key holds within the single statement.
+      // Parents precede children here, so the self-referencing key holds in one statement.
       batch.push(comment);
       known.set(item.platformCommentId, comment);
     }
@@ -206,10 +186,6 @@ export class CommentSyncService {
     this.logger.warn(`Sync failed for post ${state.postId}: ${state.lastError.code}`);
   }
 
-  /**
-   * Comment activity decays sharply with post age, so a flat interval either
-   * burns the rate-limit budget on dormant posts or leaves fresh ones stale.
-   */
   private pollInterval(ctx: PublishedPostContext): number {
     const ageMs = Date.now() - (ctx.post.publishedAt?.getTime() ?? Date.now());
 

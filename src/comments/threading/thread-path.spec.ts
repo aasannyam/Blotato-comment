@@ -7,8 +7,7 @@ describe('thread paths', () => {
     const earlier = childPath(null, 'aaaaaaaa-0000-0000-0000-000000000000', new Date(1_000));
     const later = childPath(null, 'bbbbbbbb-0000-0000-0000-000000000000', new Date(2_000));
 
-    // This is the whole point of the fixed-width time prefix: ORDER BY path is
-    // also chronological order, so a thread comes back in reading order.
+    // The point of the fixed-width prefix: ORDER BY path is also reading order.
     expect([later, earlier].sort()).toEqual([earlier, later]);
   });
 

@@ -10,11 +10,6 @@ export type PlatformErrorCode =
   | 'INVALID_REQUEST'
   | 'UNKNOWN';
 
-/**
- * Drives the dispatcher's retry decision. AUTH_EXPIRED is deliberately absent:
- * retrying a revoked token wastes attempts and delays telling the user to
- * reconnect.
- */
 const RETRYABLE = new Set<PlatformErrorCode>(['RATE_LIMITED', 'UNAVAILABLE', 'TIMEOUT', 'UNKNOWN']);
 
 /** Adapters translate their platform's errors into this; nothing above them sees an HTTP status. */

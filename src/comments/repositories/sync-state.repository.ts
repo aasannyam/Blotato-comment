@@ -21,18 +21,6 @@ export class SyncStateRepository {
     return this.repo.save(state);
   }
 
-  /**
-   * Claims due posts the same way the reply outbox claims replies: the row is
-   * taken and `next_poll_at` pushed forward in one statement, so a second worker
-   * cannot pick up the same post.
-   *
-   * A plain SELECT here meant every worker polled every due post, multiplying
-   * platform calls by the number of workers — spending exactly the per-account
-   * rate-limit budget the mirror exists to protect.
-   *
-   * The push doubles as a visibility timeout: a worker that dies mid-sync
-   * releases the post automatically once it elapses, instead of stranding it.
-   */
   async claimDue(limit: number, visibilitySeconds: number): Promise<CommentSyncState[]> {
     // TypeORM returns `[rows, affectedCount]` for UPDATE ... RETURNING on Postgres.
     const [claimed] = (await this.repo.query(

@@ -9,10 +9,6 @@ import {
 } from 'typeorm';
 import { SocialAccount } from './social-account.entity';
 
-/**
- * One published post on one platform. A scheduled item fanned out to four
- * platforms is four rows, because a comment thread only exists per platform.
- */
 @Entity('posts')
 @Index(['workspaceId', 'publishedAt'])
 export class Post {

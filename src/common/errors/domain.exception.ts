@@ -1,10 +1,5 @@
 import { HttpStatus } from '@nestjs/common';
 
-/**
- * Clients branch on `code`; `status` is only there so proxies and dashboards
- * behave. Keeping them separate makes "changing a status" a routing decision and
- * "changing a code" a breaking API change.
- */
 export class DomainException extends Error {
   constructor(
     readonly code: string,
@@ -51,10 +46,6 @@ export class ReplyTooLongException extends DomainException {
   }
 }
 
-/**
- * Same key, different body. Returning the original would hide a client bug;
- * overwriting it would break the idempotency contract.
- */
 export class IdempotencyConflictException extends DomainException {
   constructor(key: string) {
     super(

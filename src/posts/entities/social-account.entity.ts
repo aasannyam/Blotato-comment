@@ -1,9 +1,5 @@
 import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
 
-/**
- * ASSUMPTION: this exists in Blotato in a richer form. The comment system
- * depends on these fields and nothing else.
- */
 @Entity('social_accounts')
 @Index(['workspaceId', 'platform'])
 export class SocialAccount {

@@ -36,11 +36,6 @@ export class CommentsRepository {
       .where('c.workspaceId = :workspaceId', { workspaceId });
   }
 
-  /**
-   * Row comparison `(a, b) > (x, y)` maps onto the composite index, unlike the
-   * `a > x OR (a = x AND b > y)` form planners often refuse to range-scan.
-   * Taking limit + 1 answers "is there another page" without a COUNT.
-   */
   private keyset(
     qb: SelectQueryBuilder<Comment>,
     key: string,
@@ -67,11 +62,6 @@ export class CommentsRepository {
     return this.keyset(qb, 'c.sortAt', params).getMany();
   }
 
-  /**
-   * Cross-post query over the mirror — the read that proxying to the platforms
-   * could not answer at all, since it spans posts and accounts that live behind
-   * different APIs with different pagination.
-   */
   search(filters: SearchFilters, params: ListParams): Promise<Comment[]> {
     const qb = this.scoped(params.workspaceId).andWhere('c.deletedAt IS NULL');
 
@@ -84,8 +74,7 @@ export class CommentsRepository {
     if (filters.until) qb.andWhere('c.sortAt <= :until', { until: filters.until });
 
     if (filters.unansweredOnly) {
-      // Anti-join rather than a LEFT JOIN + IS NULL: Postgres stops at the first
-      // matching reply instead of materialising every reply to every comment.
+      // Anti-join, not LEFT JOIN + IS NULL: stops at the first matching reply.
       qb.andWhere("c.origin = 'platform'")
         .andWhere('c.isFromOwner = false')
         .andWhere(
@@ -151,11 +140,6 @@ export class CommentsRepository {
     return this.repo.save(comment);
   }
 
-  /**
-   * Re-polling the head of a thread replays pages constantly, so ON CONFLICT
-   * makes that a no-op. Threading columns are never updated: rewriting a path
-   * would invalidate every descendant's.
-   */
   async upsertMirrored(comments: Comment[]): Promise<void> {
     if (comments.length === 0) return;
 
@@ -179,15 +163,8 @@ export class CommentsRepository {
       .execute();
   }
 
-  /**
-   * SKIP LOCKED lets any number of dispatchers drain the queue with no
-   * coordination. Claiming also pushes next_attempt_at forward by a visibility
-   * timeout, so a worker that dies releases its rows instead of stranding them —
-   * which is why the predicate includes 'sending', not just 'pending'.
-   */
   async claimDueReplies(limit: number, visibilitySeconds: number): Promise<Comment[]> {
-    // TypeORM returns `[rows, affectedCount]` for UPDATE ... RETURNING on
-    // Postgres, not the rows directly.
+    // TypeORM returns `[rows, affectedCount]` for UPDATE ... RETURNING on Postgres.
     const [claimed] = (await this.repo.query(
       `UPDATE comments
           SET delivery_status   = 'sending',

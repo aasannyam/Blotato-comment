@@ -1,14 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PlatformError } from './platform.errors';
 
-/**
- * Resolves a `credentialRef` into an access token.
- *
- * ASSUMPTION: Blotato already has OAuth storage and refresh — it must, to
- * publish at all. This is the seam to it, kept in-memory so the comment system
- * is reviewable on its own. Tokens are fetched per call and never persisted or
- * logged here.
- */
 @Injectable()
 export class TokenVaultService {
   private readonly tokens = new Map<string, string>();

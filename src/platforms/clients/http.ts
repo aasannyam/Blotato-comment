@@ -57,8 +57,7 @@ export async function platformFetch<T>(req: PlatformRequest): Promise<T> {
     return response.status === 204 ? (undefined as T) : ((await response.json()) as T);
   } catch (error) {
     if (error instanceof PlatformError) throw error;
-    // A timeout is ambiguous: the platform may still have applied the write.
-    // That ambiguity is why replies carry an idempotency key.
+    // A timeout is ambiguous: the write may have applied. Hence idempotency keys.
     const timedOut = error instanceof Error && error.name === 'AbortError';
     throw new PlatformError({
       code: timedOut ? 'TIMEOUT' : 'UNAVAILABLE',

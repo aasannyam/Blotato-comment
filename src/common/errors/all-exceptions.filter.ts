@@ -49,8 +49,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     }
 
     if (exception instanceof PlatformError) {
-      // The caller's request was fine, the upstream was not — 502/504, not 500,
-      // so alerting on our own 5xx stays meaningful.
+      // The caller's request was fine, the upstream was not: 502/504, never 500.
       return {
         title: 'PlatformError',
         status: exception.code === 'TIMEOUT' ? HttpStatus.GATEWAY_TIMEOUT : HttpStatus.BAD_GATEWAY,

@@ -1,5 +1,3 @@
-/** Matches docker-compose.yml, which publishes on 55432 to avoid shadowing a
- *  locally installed Postgres on 5432. */
 export const DEFAULT_DATABASE_URL = 'postgres://blotato:blotato@localhost:55432/blotato_comments';
 
 export interface AppConfig {
@@ -20,8 +18,7 @@ export default (): AppConfig => ({
   port: int(process.env.PORT, 3000),
   databaseUrl: process.env.DATABASE_URL ?? DEFAULT_DATABASE_URL,
   workers: {
-    // Lets API and worker instances run the same image in different roles, so
-    // scaling reads does not multiply polling load on the platforms.
+    // Lets API and worker instances run the same image in different roles.
     enabled: process.env.WORKERS_ENABLED !== 'false',
   },
   reply: {

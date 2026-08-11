@@ -101,8 +101,7 @@ describe('RepliesService.createReply', () => {
       body: 'thanks!',
     });
 
-    // The platform would flatten this anyway; storing the requested parent would
-    // leave our mirror disagreeing with it after the next sync.
+    // The platform flattens this anyway; the requested parent would drift on next sync.
     expect(reply.parentId).toBe('c-1');
     expect(reply.depth).toBe(1);
     expect(reply.wasReparented).toBe(true);

@@ -4,10 +4,6 @@ import { Interval } from '@nestjs/schedule';
 import { PostsService } from '../../posts/posts.service';
 import { CommentSyncService } from '../services/comment-sync.service';
 
-/**
- * Refreshes the mirror for posts whose platform cannot push events. The
- * "how often" policy lives in `CommentSyncService`; this only runs what is due.
- */
 @Injectable()
 export class CommentPollerService {
   private readonly logger = new Logger(CommentPollerService.name);
@@ -45,8 +41,7 @@ export class CommentPollerService {
         const ctx = await this.posts.getPublishedPost(state.workspaceId, state.postId);
         await this.sync.syncPost(ctx, 1);
       } catch {
-        // syncPost already recorded the failure and pushed next_poll_at out; one
-        // bad post must not abort the batch.
+        // syncPost already recorded the failure; one bad post must not abort the batch.
         this.logger.warn(`Poll failed for post ${state.postId}`);
       }
     }

@@ -44,14 +44,6 @@ export class RepliesService {
     private readonly registry: PlatformRegistry,
   ) {}
 
-  /**
-   * Accepts a reply into the outbox without calling the platform.
-   *
-   * Inline, a 30s timeout on X becomes a 30s HTTP request, a 429 becomes the
-   * user's problem, and a network failure after the platform accepted the write
-   * becomes a duplicate comment. Committing locally as `pending` lets the reply
-   * render in its thread immediately while delivery is retried out of band.
-   */
   async createReply(input: CreateReplyInput): Promise<CreateReplyOutcome> {
     const fingerprint = this.fingerprint(input);
 
@@ -68,8 +60,7 @@ export class RepliesService {
     const target = await this.resolveTarget(ctx, parent, capabilities);
     const body = this.applyMention(input.body, target, capabilities);
 
-    // After the mention: it counts against the limit, and discovering that at
-    // delivery time is a failure the user cannot see or fix.
+    // Checked after the mention, which counts against the limit the user cannot see.
     if (body.length > capabilities.maxBodyLength) {
       throw new ReplyTooLongException(ctx.post.platform, body.length, capabilities.maxBodyLength);
     }
@@ -111,8 +102,7 @@ export class RepliesService {
     try {
       return { comment: await this.comments.save(reply), replayed: false };
     } catch (error) {
-      // Two identical requests raced past the lookup above. The unique index is
-      // the real guarantee; this turns it back into the replay answer.
+      // Two requests raced past the lookup; the unique index is the real guarantee.
       if (this.isUniqueViolation(error) && input.idempotencyKey) {
         const existing = await this.comments.findByIdempotencyKey(
           input.workspaceId,
@@ -153,11 +143,6 @@ export class RepliesService {
     return { ctx: await this.posts.getPublishedPost(input.workspaceId, input.postId), parent: null };
   }
 
-  /**
-   * Instagram, TikTok and YouTube flatten a reply-to-a-reply onto the top-level
-   * thread. Storing the requested parent would put our mirror at odds with the
-   * platform on the next sync, so we re-parent and record that we did.
-   */
   private async resolveTarget(
     ctx: PublishedPostContext,
     parent: Comment | null,
@@ -183,8 +168,7 @@ export class RepliesService {
     if (!target.reparented || !capabilities.mentionOnReparent) return body;
 
     const handle = target.requested?.author?.handle;
-    // Whole-handle match: `includes` treated "@nina" as present in "@ninaK",
-    // silently dropping the mention the re-parented reply depends on.
+    // Whole-handle match: `includes` read "@nina" as present in "@ninaK".
     if (!handle || new RegExp(`@${escapeRegExp(handle)}(?![\\w.])`).test(body)) return body;
     return `@${handle} ${body}`;
   }

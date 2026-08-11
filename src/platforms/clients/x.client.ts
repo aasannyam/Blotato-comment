@@ -30,11 +30,6 @@ interface XSearchResponse {
   meta?: { next_token?: string };
 }
 
-/**
- * X. A comment here is just another tweet with a reply reference, which is why
- * the domain models comments as generic nodes with a parent pointer rather than
- * borrowing any one platform's shape.
- */
 @Injectable()
 export class XCommentClient implements PlatformCommentClient {
   readonly platform = 'x';
@@ -51,8 +46,7 @@ export class XCommentClient implements PlatformCommentClient {
   async fetchComments(ctx: PlatformContext, params: FetchCommentsParams): Promise<FetchCommentsPage> {
     const token = await this.vault.getAccessToken(ctx.credentialRef, this.platform);
 
-    // A post's entire reply tree is one conversation, so a single paged search
-    // returns every depth at once; nesting is rebuilt from `referenced_tweets`.
+    // One paged search returns every depth; nesting rebuilt from `referenced_tweets`.
     const url = new URL(`${API}/tweets/search/recent`);
     url.searchParams.set('query', `conversation_id:${params.platformPostId}`);
     url.searchParams.set('max_results', String(Math.min(params.limit, 100)));

@@ -3,12 +3,6 @@ export type PlatformId = string;
 
 /** Domain code branches on these, never on `platform === 'instagram'`. */
 export interface PlatformCapabilities {
-  /**
-   * Deepest reply nesting accepted. 1 = flat replies (Instagram, TikTok,
-   * YouTube); `null` = arbitrary nesting, so replies are never re-parented.
-   * A sentinel number would be served verbatim by GET /v1/platforms and leave
-   * clients rendering it as a real limit.
-   */
   readonly maxThreadDepth: number | null;
   readonly maxBodyLength: number;
   readonly supportsWebhooks: boolean;
@@ -68,19 +62,10 @@ export interface PublishReplyResult {
   readonly permalink: string | null;
 }
 
-/**
- * The seam between our domain and every platform. Adding one is a class plus a
- * line in PlatformsModule; nothing else changes.
- */
 export interface PlatformCommentClient {
   readonly platform: PlatformId;
   readonly capabilities: PlatformCapabilities;
 
-  /**
-   * One page of a post's comments at every depth. How the adapter gets them —
-   * one call, or N+1 against a platform that does not nest replies in its
-   * listing — is the adapter's problem, not the caller's.
-   */
   fetchComments(ctx: PlatformContext, params: FetchCommentsParams): Promise<FetchCommentsPage>;
 
   publishReply(ctx: PlatformContext, params: PublishReplyParams): Promise<PublishReplyResult>;

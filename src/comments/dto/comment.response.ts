@@ -15,11 +15,6 @@ class DeliveryResponse {
   error!: { code: string; message: string; retryable: boolean } | null;
 }
 
-/**
- * Deliberately omits the raw platform payload (internal, and a stable-API
- * liability) and the materialised path (storage detail). Clients get `parentId`,
- * `rootId` and `depth`, which are the parts that mean something.
- */
 export class CommentResponse {
   @ApiProperty({ description: 'Blotato id — the only id to use in this API.' }) id!: string;
   @ApiProperty() postId!: string;

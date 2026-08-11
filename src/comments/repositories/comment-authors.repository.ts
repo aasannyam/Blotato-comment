@@ -19,15 +19,6 @@ function key(platform: string, platformUserId: string): string {
 export class CommentAuthorsRepository {
   constructor(@InjectRepository(CommentAuthor) private readonly repo: Repository<CommentAuthor>) {}
 
-  /**
-   * Upsert in one statement — a read-then-write would race two sync workers
-   * mirroring the same commenter. COALESCE so a payload that omits a field does
-   * not erase what we already know.
-   *
-   * The rows are read back rather than taken from RETURNING: raw returned rows
-   * are snake_cased and not entities, and hand-mapping them is exactly the kind
-   * of silent mismatch that produces null authors.
-   */
   async ensureMany(inputs: AuthorInput[]): Promise<Map<string, CommentAuthor>> {
     const unique = new Map(inputs.map((i) => [key(i.platform, i.platformUserId), i]));
     if (unique.size === 0) return new Map();
