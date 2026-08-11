@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Interval } from '@nestjs/schedule';
 import { PostsService } from '../../posts/posts.service';
-import { CommentSyncService } from '../comment-sync.service';
+import { CommentSyncService } from '../services/comment-sync.service';
 
 /**
  * Refreshes the mirror for posts whose platform cannot push events. The

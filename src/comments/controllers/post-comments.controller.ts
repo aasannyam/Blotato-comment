@@ -1,12 +1,12 @@
 import { Body, Controller, Get, Headers, HttpStatus, Param, ParseUUIDPipe, Post, Query, Res } from '@nestjs/common';
 import { ApiHeader, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Response } from 'express';
-import { WorkspaceId } from '../common/auth/workspace.decorator';
-import { CommentsService } from './comments.service';
-import { CommentListResponse, CommentResponse } from './dto/comment.response';
-import { CreateReplyDto } from './dto/create-reply.dto';
-import { ListCommentsQuery } from './dto/list-comments.query';
-import { RepliesService } from './replies.service';
+import { WorkspaceId } from '../../common/auth/workspace.decorator';
+import { CommentsService } from '../services/comments.service';
+import { CommentListResponse, CommentResponse } from '../dto/comment.response';
+import { CreateReplyDto } from '../dto/create-reply.dto';
+import { ListCommentsQuery } from '../dto/list-comments.query';
+import { RepliesService } from '../services/replies.service';
 
 /**
  * Comments are nested under the post because a comment has no meaning without

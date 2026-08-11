@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { CommentAuthor } from './entities/comment-author.entity';
+import { CommentAuthor } from '../entities/comment-author.entity';
 
 export interface AuthorInput {
   platform: string;

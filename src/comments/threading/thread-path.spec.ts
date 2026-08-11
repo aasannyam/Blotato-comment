@@ -1,5 +1,5 @@
-import { decodeCursor, encodeCursor } from '../common/pagination/cursor';
-import { InvalidCursorException } from '../common/errors/domain.exception';
+import { decodeCursor, encodeCursor } from '../../common/pagination/cursor';
+import { InvalidCursorException } from '../../common/errors/domain.exception';
 import { ancestorPathAtDepth, childPath, descendantPattern } from './thread-path';
 
 describe('thread paths', () => {

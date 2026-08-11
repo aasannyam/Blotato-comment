@@ -2,9 +2,9 @@ import {
   DomainException,
   IdempotencyConflictException,
   ReplyTooLongException,
-} from '../common/errors/domain.exception';
-import { PlatformCapabilities } from '../platforms/platform-client.interface';
-import { Comment } from './entities/comment.entity';
+} from '../../common/errors/domain.exception';
+import { PlatformCapabilities } from '../../platforms/platform-client.interface';
+import { Comment } from '../entities/comment.entity';
 import { RepliesService } from './replies.service';
 
 /** Instagram-shaped: flat replies, short-ish limit, mentions on re-parent. */

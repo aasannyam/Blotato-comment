@@ -4,7 +4,7 @@ import { Interval } from '@nestjs/schedule';
 import { PlatformError } from '../../platforms/platform.errors';
 import { PlatformRegistry } from '../../platforms/platform-registry.service';
 import { PostsService } from '../../posts/posts.service';
-import { CommentsRepository } from '../comments.repository';
+import { CommentsRepository } from '../repositories/comments.repository';
 import { Comment } from '../entities/comment.entity';
 
 const BASE_BACKOFF_MS = 2_000;

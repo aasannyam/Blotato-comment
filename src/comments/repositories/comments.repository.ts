@@ -2,9 +2,9 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository, SelectQueryBuilder } from 'typeorm';
 import { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity';
-import { CursorPayload } from '../common/pagination/cursor';
-import { Comment } from './entities/comment.entity';
-import { descendantPattern } from './thread-path';
+import { CursorPayload } from '../../common/pagination/cursor';
+import { Comment } from '../entities/comment.entity';
+import { descendantPattern } from '../threading/thread-path';
 
 export type SortOrder = 'oldest' | 'newest';
 

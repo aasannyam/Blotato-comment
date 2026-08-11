@@ -2,14 +2,14 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { randomUUID } from 'node:crypto';
 import { Repository } from 'typeorm';
-import { RawPlatformComment } from '../platforms/platform-client.interface';
-import { PlatformError } from '../platforms/platform.errors';
-import { PlatformRegistry } from '../platforms/platform-registry.service';
-import { PublishedPostContext } from '../posts/posts.service';
-import { CommentAuthorsRepository } from './comment-authors.repository';
-import { CommentsRepository } from './comments.repository';
-import { CommentSyncState } from './entities/comment-sync-state.entity';
-import { childPath } from './thread-path';
+import { RawPlatformComment } from '../../platforms/platform-client.interface';
+import { PlatformError } from '../../platforms/platform.errors';
+import { PlatformRegistry } from '../../platforms/platform-registry.service';
+import { PublishedPostContext } from '../../posts/posts.service';
+import { CommentAuthorsRepository } from '../repositories/comment-authors.repository';
+import { CommentsRepository } from '../repositories/comments.repository';
+import { CommentSyncState } from '../entities/comment-sync-state.entity';
+import { childPath } from '../threading/thread-path';
 
 export interface SyncResult {
   imported: number;

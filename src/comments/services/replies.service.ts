@@ -6,14 +6,14 @@ import {
   DomainException,
   IdempotencyConflictException,
   ReplyTooLongException,
-} from '../common/errors/domain.exception';
-import { PlatformCapabilities } from '../platforms/platform-client.interface';
-import { PlatformRegistry } from '../platforms/platform-registry.service';
-import { PostsService, PublishedPostContext } from '../posts/posts.service';
-import { CommentAuthorsRepository } from './comment-authors.repository';
-import { CommentsRepository } from './comments.repository';
-import { Comment } from './entities/comment.entity';
-import { ancestorPathAtDepth, childPath } from './thread-path';
+} from '../../common/errors/domain.exception';
+import { PlatformCapabilities } from '../../platforms/platform-client.interface';
+import { PlatformRegistry } from '../../platforms/platform-registry.service';
+import { PostsService, PublishedPostContext } from '../../posts/posts.service';
+import { CommentAuthorsRepository } from '../repositories/comment-authors.repository';
+import { CommentsRepository } from '../repositories/comments.repository';
+import { Comment } from '../entities/comment.entity';
+import { ancestorPathAtDepth, childPath } from '../threading/thread-path';
 
 export interface CreateReplyInput {
   workspaceId: string;

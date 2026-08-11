@@ -2,14 +2,14 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { CommentNotFoundException } from '../common/errors/domain.exception';
-import { Page, buildPage, decodeCursor } from '../common/pagination/cursor';
-import { PlatformError } from '../platforms/platform.errors';
-import { PostsService } from '../posts/posts.service';
+import { CommentNotFoundException } from '../../common/errors/domain.exception';
+import { Page, buildPage, decodeCursor } from '../../common/pagination/cursor';
+import { PlatformError } from '../../platforms/platform.errors';
+import { PostsService } from '../../posts/posts.service';
 import { CommentSyncService } from './comment-sync.service';
-import { CommentsRepository, SortOrder } from './comments.repository';
-import { CommentSyncState } from './entities/comment-sync-state.entity';
-import { Comment } from './entities/comment.entity';
+import { CommentsRepository, SortOrder } from '../repositories/comments.repository';
+import { CommentSyncState } from '../entities/comment-sync-state.entity';
+import { Comment } from '../entities/comment.entity';
 
 export interface ListQuery {
   limit: number;
