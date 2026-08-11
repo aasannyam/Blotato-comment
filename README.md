@@ -265,26 +265,21 @@ Called out rather than half-built.
 
 ## Tests
 
-**25 unit tests**, no database required: depth clamping and mention rewriting,
-idempotent replay vs. conflict, per-platform limits, retryable vs. terminal
-delivery failures, sync threading and re-sync id/path preservation, path
-ordering, cursor round-trips.
+**25 unit tests, no database** — depth clamping and mentions, idempotent replay
+vs. conflict, per-platform limits, retryable vs. terminal failures, sync
+threading and re-sync id/path preservation, path ordering, cursors.
 
-The real risk here is SQL and concurrency, which stubs can't reach, so the rest
-was verified against a real Postgres 16: migrations applied, the full flow driven
-over HTTP (sync → list → paginate → reply → re-parent → replay → delivery →
-re-sync without duplication), claim queries checked for double-claiming, query
-plans read at 50k rows.
-
-Bugs that surfaced **only** there:
+Stubs can't reach SQL or concurrency, so that was checked by hand against
+Postgres 16: full flow over HTTP, claim queries under double-claim, query plans
+at 50k rows. Four bugs surfaced **only** there:
 
 - `UPDATE … RETURNING` returns `[rows, affectedCount]` in TypeORM
-- the migration CLI never loaded `.env`, so it silently used the default database
-- the cross-post query had no supporting index — sequential scan plus sort
-- the poller's "claim" was a plain `SELECT`, letting every worker poll every post
+- the migration CLI never loaded `.env`, so it used the default database
+- the cross-post query had no index — sequential scan plus sort
+- the poller's "claim" was a plain `SELECT`, so every worker polled every post
 
-CI running that flow against a Postgres service container is the obvious next
-step, and is not here.
+That list is the argument for CI against a Postgres service container, which is
+the next step and isn't here.
 
 ---
 
