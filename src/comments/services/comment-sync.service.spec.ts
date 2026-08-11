@@ -57,6 +57,81 @@ function buildService(known: Map<string, Comment> = new Map()) {
   return { service, comments, upserted };
 }
 
+function buildSyncService(
+  pages: { comments: RawPlatformComment[]; nextCursor: string | null }[],
+  failWith?: Error,
+) {
+  const fetchComments = jest.fn();
+  if (failWith) fetchComments.mockRejectedValue(failWith);
+  else for (const page of pages) fetchComments.mockResolvedValueOnce(page);
+
+  const persisted = new Map<string, Comment>();
+  const comments = {
+    findByPlatformIds: jest.fn(async () => new Map(persisted)),
+    upsertMirrored: jest.fn(async (batch: Comment[]) => {
+      for (const c of batch) persisted.set(c.platformCommentId as string, c);
+    }),
+    create: jest.fn((data: Partial<Comment>) => data as Comment),
+  };
+  const authors = {
+    ensureMany: jest.fn(async () => new Map<string, { id: string }>()),
+  };
+  const state = {
+    findByPostId: jest.fn().mockResolvedValue({ postId: 'post-1' }),
+    save: jest.fn(async (s: unknown) => s),
+    create: jest.fn(),
+  };
+
+  const service = new CommentSyncService(
+    { get: () => ({ fetchComments }), capabilities: () => ({ supportsWebhooks: false }) } as never,
+    comments as never,
+    authors as never,
+    state as never,
+  );
+
+  return { service, fetchComments, state };
+}
+
+describe('CommentSyncService.syncPost', () => {
+  it('stops at the page budget when nothing was left orphaned', async () => {
+    const { service, fetchComments } = buildSyncService([
+      { comments: [raw({ platformCommentId: 'x-1' })], nextCursor: 'more' },
+    ]);
+
+    const result = await service.syncPost(CTX, 1);
+
+    expect(fetchComments).toHaveBeenCalledTimes(1);
+    expect(result.deferred).toBe(0);
+  });
+
+  it('keeps paging past the budget while a page leaves orphans', async () => {
+    // x-2's parent is not in page 1, so page 1 defers it and we pull page 2.
+    const { service, fetchComments } = buildSyncService([
+      {
+        comments: [raw({ platformCommentId: 'x-2', parentPlatformCommentId: 'x-1' })],
+        nextCursor: 'page-2',
+      },
+      { comments: [raw({ platformCommentId: 'x-1' })], nextCursor: null },
+    ]);
+
+    const result = await service.syncPost(CTX, 1);
+
+    // Without this, the parent stays unfetched and x-2 is deferred on every poll.
+    expect(fetchComments).toHaveBeenCalledTimes(2);
+    expect(result.deferred).toBe(1);
+    expect(result.imported).toBe(1);
+  });
+
+  it('records the failure and rethrows when the platform call fails', async () => {
+    const { service, state } = buildSyncService([], new Error('platform down'));
+
+    await expect(service.syncPost(CTX, 1)).rejects.toThrow('platform down');
+
+    // The caller sees the error, but next_poll_at still moved out.
+    expect(state.save).toHaveBeenCalled();
+  });
+});
+
 describe('CommentSyncService.ingest', () => {
   it('assigns depth, root and path from the parent already in view', async () => {
     const { service, upserted } = buildService();
