@@ -262,10 +262,6 @@ I used **Claude** and **ChatGPT**, for two things:
   them to argue both sides of each before committing to one, which is also why
   the reasoning for each is written down above rather than left implicit.
 
-Everything here was verified rather than trusted: it typechecks, the tests pass,
-the migrations run against real Postgres, and the whole flow was driven end to
-end over HTTP. The bugs listed under Tests were found that way.
-
 ---
 
 ## What I'd build next

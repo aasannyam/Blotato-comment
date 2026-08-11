@@ -8,13 +8,11 @@ export type PlatformErrorCode =
   | 'BODY_TOO_LONG'
   | 'DUPLICATE'
   | 'INVALID_REQUEST'
-  // Accepted but unidentified: never retryable, since a retry would post twice.
   | 'UNCONFIRMED_WRITE'
   | 'UNKNOWN';
 
 const RETRYABLE = new Set<PlatformErrorCode>(['RATE_LIMITED', 'UNAVAILABLE', 'TIMEOUT', 'UNKNOWN']);
 
-/** Adapters translate their platform's errors into this; nothing above them sees an HTTP status. */
 export class PlatformError extends Error {
   readonly code: PlatformErrorCode;
   readonly platform: string;
