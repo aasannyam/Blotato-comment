@@ -7,7 +7,7 @@ import { Page, buildPage, decodeCursor } from '../../common/pagination/cursor';
 import { PlatformError } from '../../platforms/platform.errors';
 import { PostsService } from '../../posts/posts.service';
 import { CommentSyncService } from './comment-sync.service';
-import { CommentsRepository, SortOrder } from '../repositories/comments.repository';
+import { CommentsRepository, SearchFilters, SortOrder } from '../repositories/comments.repository';
 import { CommentSyncState } from '../entities/comment-sync-state.entity';
 import { Comment } from '../entities/comment.entity';
 
@@ -85,6 +85,28 @@ export class CommentsService {
     }));
 
     return { ...page, meta: await this.meta(postId, syncError) };
+  }
+
+  /**
+   * The read that only exists because comments are mirrored: it spans posts and
+   * platforms, so no single upstream API could serve it. `unansweredOnly` turns
+   * it into a moderation queue over everything the workspace has published.
+   *
+   * Deliberately carries no `meta` — staleness is per post, and a page here can
+   * mix posts synced at different times, so one flag would be meaningless.
+   */
+  async searchComments(
+    workspaceId: string,
+    filters: SearchFilters,
+    query: ListQuery,
+  ): Promise<Page<Comment>> {
+    const rows = await this.comments.search(filters, {
+      workspaceId,
+      limit: query.limit,
+      cursor: query.cursor ? decodeCursor(query.cursor) : null,
+      order: query.order,
+    });
+    return buildPage(rows, query.limit, (row) => ({ k: row.sortAt.toISOString(), id: row.id }));
   }
 
   async listReplies(

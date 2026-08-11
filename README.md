@@ -47,7 +47,9 @@ Proxying looks simpler and breaks quickly:
 - **Every read inherits platform latency and downtime.** Mirrored, a read is one
   indexed query.
 - Sorting, filtering and "show me every unanswered comment across all my posts"
-  are only possible over local data.
+  are only possible over local data. That last one is `GET /v1/comments?unansweredOnly=true`
+  — a query that spans posts and platforms, so no single upstream API could
+  answer it however many requests you were willing to spend.
 
 The cost is staleness, so staleness is **reported rather than hidden**:
 
@@ -160,6 +162,7 @@ union — **onboarding a platform must never require a migration.**
 |---|---|---|
 | `GET` | `/v1/posts/:postId/comments` | Top-level comments. `?limit`, `?cursor`, `?order`, `?refresh` |
 | `POST` | `/v1/posts/:postId/comments` | Comment on your own post → `202` |
+| `GET` | `/v1/comments` | Search across posts. `?postId`, `?parentCommentId`, `?platform`, `?since`, `?until`, `?unansweredOnly` |
 | `GET` | `/v1/comments/:id` | One comment; also the poll target for a queued reply |
 | `GET` | `/v1/comments/:id/replies` | Direct replies |
 | `GET` | `/v1/comments/:id/thread` | Whole subtree, any depth, in reading order |
@@ -168,6 +171,13 @@ union — **onboarding a platform must never require a migration.**
 
 Comments are nested under posts because a comment is meaningless without one; an
 individual comment is then addressable at the top level once you have its id.
+
+**Both a nested route and a flat collection**, because they answer different
+questions. `/posts/:id/comments` is the thread view, and it owns `?refresh`,
+where one post bounds how much syncing a request can trigger. `/comments` is the
+cross-cutting view — a moderation queue, an audit over a date range, everything
+on one platform — and reads cache only, since a refresh spanning every post in a
+workspace is unbounded work behind a synchronous request.
 
 **Replies are not inlined into the listing.** A post with one 400-reply thread
 would otherwise return a wildly different payload than one with 400 top-level

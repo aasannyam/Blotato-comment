@@ -6,6 +6,7 @@ import { CommentsService } from '../services/comments.service';
 import { CommentListResponse, CommentResponse } from '../dto/comment.response';
 import { CreateReplyDto } from '../dto/create-reply.dto';
 import { ListCommentsQuery } from '../dto/list-comments.query';
+import { SearchCommentsQuery } from '../dto/search-comments.query';
 import { RepliesService } from '../services/replies.service';
 
 @ApiTags('comments')
@@ -16,6 +17,36 @@ export class CommentsController {
     private readonly comments: CommentsService,
     private readonly replies: RepliesService,
   ) {}
+
+  @Get()
+  @ApiOperation({
+    summary: 'Search comments across posts and platforms',
+    description:
+      'Flat collection over the mirror. Every filter is optional and combinable, so one route ' +
+      'serves "this post", "replies to this comment", "everything on Instagram last week" and ' +
+      '`unansweredOnly=true`, the moderation queue — none of which a single platform API ' +
+      'could answer, since they span accounts that paginate differently. Reads only cached ' +
+      'data: `?refresh=true` is on the per-post route, where one post bounds the sync cost.',
+  })
+  @ApiResponse({ status: 200, type: CommentListResponse })
+  async search(
+    @WorkspaceId() workspaceId: string,
+    @Query() query: SearchCommentsQuery,
+  ): Promise<CommentListResponse> {
+    const page = await this.comments.searchComments(
+      workspaceId,
+      {
+        postId: query.postId,
+        parentCommentId: query.parentCommentId,
+        platform: query.platform,
+        since: query.since ? new Date(query.since) : undefined,
+        until: query.until ? new Date(query.until) : undefined,
+        unansweredOnly: query.unansweredOnly,
+      },
+      query,
+    );
+    return { data: page.data.map(CommentResponse.from), nextCursor: page.nextCursor };
+  }
 
   @Get(':commentId')
   @ApiOperation({

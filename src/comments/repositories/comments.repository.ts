@@ -15,6 +15,16 @@ export interface ListParams {
   order: SortOrder;
 }
 
+/** All optional and combinable; absent means "no constraint on this dimension". */
+export interface SearchFilters {
+  postId?: string;
+  parentCommentId?: string;
+  platform?: string;
+  since?: Date;
+  until?: Date;
+  unansweredOnly?: boolean;
+}
+
 @Injectable()
 export class CommentsRepository {
   constructor(@InjectRepository(Comment) private readonly repo: Repository<Comment>) {}
@@ -54,6 +64,40 @@ export class CommentsRepository {
       .andWhere('c.postId = :postId', { postId })
       .andWhere('c.depth = 0')
       .andWhere('c.deletedAt IS NULL');
+    return this.keyset(qb, 'c.sortAt', params).getMany();
+  }
+
+  /**
+   * Cross-post query over the mirror — the read that proxying to the platforms
+   * could not answer at all, since it spans posts and accounts that live behind
+   * different APIs with different pagination.
+   */
+  search(filters: SearchFilters, params: ListParams): Promise<Comment[]> {
+    const qb = this.scoped(params.workspaceId).andWhere('c.deletedAt IS NULL');
+
+    if (filters.postId) qb.andWhere('c.postId = :postId', { postId: filters.postId });
+    if (filters.parentCommentId) {
+      qb.andWhere('c.parentId = :parentId', { parentId: filters.parentCommentId });
+    }
+    if (filters.platform) qb.andWhere('c.platform = :platform', { platform: filters.platform });
+    if (filters.since) qb.andWhere('c.sortAt >= :since', { since: filters.since });
+    if (filters.until) qb.andWhere('c.sortAt <= :until', { until: filters.until });
+
+    if (filters.unansweredOnly) {
+      // Anti-join rather than a LEFT JOIN + IS NULL: Postgres stops at the first
+      // matching reply instead of materialising every reply to every comment.
+      qb.andWhere("c.origin = 'platform'")
+        .andWhere('c.isFromOwner = false')
+        .andWhere(
+          `NOT EXISTS (
+             SELECT 1 FROM comments r
+              WHERE r.parent_id = c.id
+                AND r.origin = 'blotato'
+                AND r.deleted_at IS NULL
+           )`,
+        );
+    }
+
     return this.keyset(qb, 'c.sortAt', params).getMany();
   }
 
